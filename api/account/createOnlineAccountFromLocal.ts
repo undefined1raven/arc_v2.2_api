@@ -1,105 +1,17 @@
+import { ab2str } from "../../fn/ab2str";
+import { stringToCharCodeArray } from "../../fn/charCodeStr";
 import { malformedRequestResponse } from "../../fn/maformedRequestResponse";
 const { subtle } = require("crypto").webcrypto;
 import crypto from "crypto";
-type ExpectedRequestBody = {
-  userData: {
-    id: string;
-    signupTime: number;
-    publicKey: string;
-    passwordHash: string | null;
-    emailAddress: string | null;
-    passkeys: string | null;
-    PIKBackup: string;
-    PSKBackup: string;
-    RCKBackup: string;
-    trustedDevices: string | null;
-    oauthState: string | null;
-    securityLogs: string | null;
-    version: string;
-    accountType: "online" | "local" | null;
-  };
-  appID: string;
-};
+import { validateRTDBPath } from "../../fn/validateRTDBPath";
+import { getRTDB, setRTDB } from "../../fn/endpointBoilerplate";
+import { ExpectedRequestBody } from "../../commonTypes/accountData";
+import { verifyUserData } from "../../fn/verifyUserData";
 
 ////Sub-functions used in this API endpoint
-function verifyUserData(res, userData: ExpectedRequestBody["userData"]) {
-  const requiredKeys = [
-    "id",
-    "signupTime",
-    "publicKey",
-    "passwordHash",
-    "emailAddress",
-    "passkeys",
-    "PIKBackup",
-    "PSKBackup",
-    "RCKBackup",
-    "trustedDevices",
-    "oauthState",
-    "securityLogs",
-    "version",
-  ];
-  if (typeof userData !== "object") {
-    console.error("VUD-1");
-    malformedRequestResponse(res);
-    return;
-  }
 
-  for (const key of requiredKeys) {
-    if (key in userData === false) {
-      console.error("VUD-2");
-      malformedRequestResponse(res);
-      return;
-    }
-  }
-
-  ///Check the string fields
-  const stringFields = [
-    "id",
-    "publicKey",
-    "PIKBackup",
-    "PSKBackup",
-    "RCKBackup",
-    "version",
-  ] as const;
-
-  for (const field of stringFields) {
-    if (typeof userData[field] !== "string") {
-      console.error("VUD-3");
-      malformedRequestResponse(res);
-      return;
-    }
-  }
-
-  ///Check the nullable string fields
-  const nullableStringFields = [
-    "passwordHash",
-    "emailAddress",
-    "passkeys",
-    "trustedDevices",
-    "oauthState",
-    "securityLogs",
-  ] as const;
-
-  for (const field of nullableStringFields) {
-    if (userData[field] !== null && typeof userData[field] !== "string") {
-      console.error("VUD-4");
-      malformedRequestResponse(res);
-      return;
-    }
-  }
-
-  ///Check more specific fields
-  const { signupTime } = userData;
-  if (typeof signupTime !== "number" || !Number.isInteger(signupTime)) {
-    console.error("VUD-5");
-    malformedRequestResponse(res);
-    return;
-  }
-
-  return true;
-}
-
-function createChallenge(res, userData: ExpectedRequestBody["userData"]) {
+async function createChallenge(res, userData: ExpectedRequestBody["userData"]) {
+  const rtdbPath = `/accountTypeSwitch/${validateRTDBPath(userData.id)}`;
   if (typeof userData.publicKey !== "string") {
     console.error("Invalid user public key type");
     malformedRequestResponse(res);
@@ -119,14 +31,22 @@ function createChallenge(res, userData: ExpectedRequestBody["userData"]) {
       true,
       ["encrypt"]
     )
-    .then((publicKey) => {
+    .then(async (publicKey) => {
       const rawChallenge = crypto.randomBytes(32);
-      const strinifiedChallenge = rawChallenge.toString("base64url");
       subtle
         .encrypt({ name: "RSA-OAEP" }, publicKey, rawChallenge)
-        .then((encryptedChallenge) => {
+        .then(async (encryptedChallenge) => {
+          const encryptedChallengeStr = JSON.stringify(
+            stringToCharCodeArray(ab2str(encryptedChallenge))
+          );
+
+          await setRTDB(rtdbPath, {
+            challenge: encryptedChallengeStr,
+            tx: Date.now(),
+          });
+
           res.status(200).json({
-            challenge: Buffer.from(encryptedChallenge).toString("base64url"),
+            challenge: encryptedChallengeStr,
             success: true,
             error: null,
           });
@@ -142,7 +62,7 @@ function createChallenge(res, userData: ExpectedRequestBody["userData"]) {
     });
 }
 
-function handler(req, res) {
+async function handler(req, res) {
   const body: ExpectedRequestBody = req.body.data;
   ///App ID check and body basic validation
   if (body === undefined || body?.appID !== process.env.APP_ID) {

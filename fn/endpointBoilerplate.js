@@ -1,10 +1,6 @@
 require("dotenv").config();
-const { v4 } = require("uuid");
-const bcrypt = require("bcrypt");
-const mysql = require("mysql");
-const express = require("express");
 import { validateRTDBPath } from "./validateRTDBPath";
-const { get, remove, set, ref } = require("firebase/database");
+const { get, remove, set, ref } = require("@firebase/database");
 const cookieParser = require("cookie-parser");
 var bodyParser = require("body-parser");
 const { createClient } = require("@libsql/client");
