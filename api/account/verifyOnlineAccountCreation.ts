@@ -7,7 +7,7 @@ import {
 const { subtle } = require("crypto").webcrypto;
 import crypto from "crypto";
 import { validateRTDBPath } from "../../fn/validateRTDBPath";
-import { getRTDB, setRTDB } from "../../fn/endpointBoilerplate";
+import { getRTDB, setRTDB, queryDB } from "../../fn/endpointBoilerplate";
 import {
   AuthPrivateKeyChallenge,
   ExpectedRequestBody,
@@ -56,6 +56,17 @@ async function verifyChallenge(
   return false;
 }
 
+async function saveAccountDataToDB(
+  res,
+  userData: ExpectedRequestBody["userData"]
+) {
+  const dbResponse = await queryDB(
+    `INSERT INTO users VALUES (:id, :signupTime, :publicKey, :passwordHash, :emailAddress, :passkeys, :PIKBackup, :PSKBackup, :RCKBackup, :trustedDevices, :oauthState, :securityLogs, :version, :accountType)`,
+    userData
+  );
+  console.log(dbResponse);
+}
+
 async function handler(req, res) {
   const body: ExpectedRequestBody & { challengeResponse: string } =
     req.body.data;
@@ -75,8 +86,7 @@ async function handler(req, res) {
       return;
     }
 
-    res.json({ success: "true" });
-    return;
+    saveAccountDataToDB(res, body.userData);
 
     ///From this point, the private key of the user is verified
     ///Continuing with adding the user account to the DB and generating challenges for performing ulterior API calls
