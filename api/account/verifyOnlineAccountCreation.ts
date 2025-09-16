@@ -24,7 +24,7 @@ async function verifyChallenge(
   if (typeof userData.publicKey !== "string") {
     console.error("Invalid user public key type");
     malformedRequestResponse(res);
-    return;
+    return false;
   }
 
   const plainChallengeStored: AuthPrivateKeyChallenge | null = await getRTDB(
@@ -33,17 +33,27 @@ async function verifyChallenge(
 
   if (plainChallengeStored === null) {
     errorResponse(res);
-    return;
+    return false;
   }
 
   const plainChallengeString = plainChallengeStored.challenge;
 
-  if (plainChallengeString === challengeResponse) {
-    console.log("Private key verified.");
-  } else {
-    malformedRequestResponse(res);
-    return;
+  if (
+    typeof plainChallengeStored.challenge !== "string" ||
+    typeof plainChallengeStored.tx !== "number"
+  ) {
+    errorResponse(res);
+    return false;
   }
+
+  if (plainChallengeString === challengeResponse) {
+    return true;
+  } else {
+    console.error("Challenge mismatch, denying access");
+    malformedRequestResponse(res);
+    return false;
+  }
+  return false;
 }
 
 async function handler(req, res) {
@@ -55,7 +65,21 @@ async function handler(req, res) {
   } else {
     const hasValidUserData = verifyUserData(res, body.userData);
     if (!hasValidUserData) return;
-    verifyChallenge(res, body.userData, body.challengeResponse);
+    const hasVerifiedPrivateKey = await verifyChallenge(
+      res,
+      body.userData,
+      body.challengeResponse
+    );
+
+    if (hasVerifiedPrivateKey !== true) {
+      return;
+    }
+
+    res.json({ success: "true" });
+    return;
+
+    ///From this point, the private key of the user is verified
+    ///Continuing with adding the user account to the DB and generating challenges for performing ulterior API calls
   }
 }
 

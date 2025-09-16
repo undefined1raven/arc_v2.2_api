@@ -33,6 +33,7 @@ async function createChallenge(res, userData: ExpectedRequestBody["userData"]) {
     )
     .then(async (publicKey) => {
       const rawChallenge = crypto.randomBytes(32);
+      const plainChallengeStr = rawChallenge.toString("base64");
       subtle
         .encrypt({ name: "RSA-OAEP" }, publicKey, rawChallenge)
         .then(async (encryptedChallenge) => {
@@ -41,7 +42,7 @@ async function createChallenge(res, userData: ExpectedRequestBody["userData"]) {
           );
 
           await setRTDB(rtdbPath, {
-            challenge: encryptedChallengeStr,
+            challenge: plainChallengeStr,
             tx: Date.now(),
           });
 
