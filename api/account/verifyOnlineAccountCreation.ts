@@ -47,6 +47,7 @@ async function verifyChallenge(
   }
 
   if (plainChallengeString === challengeResponse) {
+    await setRTDB(rtdbPath, null); //Delete challenge after successful verification
     return true;
   } else {
     console.error("Challenge mismatch, denying access");

@@ -7,6 +7,7 @@ import { validateRTDBPath } from "../../fn/validateRTDBPath";
 import { getRTDB, setRTDB } from "../../fn/endpointBoilerplate";
 import { ExpectedRequestBody } from "../../commonTypes/accountData";
 import { verifyUserData } from "../../fn/verifyUserData";
+import { generateCryptoChallenge } from "../../fn/common/generateCryptoChallenge";
 
 ////Sub-functions used in this API endpoint
 
@@ -16,51 +17,25 @@ async function createChallenge(res, userData: ExpectedRequestBody["userData"]) {
     console.error("Invalid user public key type");
     malformedRequestResponse(res);
   }
-  let publicKeyJSON;
-  try {
-    publicKeyJSON = JSON.parse(userData.publicKey);
-  } catch (error) {
-    console.error("Invalid public key JSON format");
+
+  const { status, error, plainChallenge, encryptedChallenge } =
+    await generateCryptoChallenge(userData.publicKey);
+
+  if (status === "error") {
+    console.error("Failed to generate crypto challenge:", error);
     return malformedRequestResponse(res);
   }
-  subtle
-    .importKey(
-      "jwk",
-      publicKeyJSON,
-      { name: "RSA-OAEP", hash: "SHA-256" },
-      true,
-      ["encrypt"]
-    )
-    .then(async (publicKey) => {
-      const rawChallenge = crypto.randomBytes(32);
-      const plainChallengeStr = rawChallenge.toString("base64");
-      subtle
-        .encrypt({ name: "RSA-OAEP" }, publicKey, rawChallenge)
-        .then(async (encryptedChallenge) => {
-          const encryptedChallengeStr = JSON.stringify(
-            stringToCharCodeArray(ab2str(encryptedChallenge))
-          );
 
-          await setRTDB(rtdbPath, {
-            challenge: plainChallengeStr,
-            tx: Date.now(),
-          });
+  await setRTDB(rtdbPath, {
+    challenge: plainChallenge,
+    tx: Date.now(),
+  });
 
-          res.status(200).json({
-            challenge: encryptedChallengeStr,
-            success: true,
-            error: null,
-          });
-        })
-        .catch((e) => {
-          console.error("Challenge encryption failed", e);
-          malformedRequestResponse(res);
-        });
-    })
-    .catch((e) => {
-      console.error("Public key import failed", e);
-      malformedRequestResponse(res);
-    });
+  res.status(200).json({
+    challenge: encryptedChallenge,
+    success: true,
+    error: null,
+  });
 }
 
 async function handler(req, res) {
