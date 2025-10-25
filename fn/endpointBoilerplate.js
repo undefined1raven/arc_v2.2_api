@@ -1,5 +1,5 @@
 require("dotenv").config();
-import { validateRTDBPath } from "./validateRTDBPath";
+const { validateRTDBPath } = require("./validateRTDBPath");
 const { get, remove, set, ref } = require("@firebase/database");
 const cookieParser = require("cookie-parser");
 var bodyParser = require("body-parser");

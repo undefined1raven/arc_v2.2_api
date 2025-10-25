@@ -14,7 +14,9 @@ function handler(req, res) {
   if (
     body === undefined ||
     body?.appID !== process.env.APP_ID ||
-    typeof body.accountID !== "string"
+    typeof body.accountID !== "string" ||
+    typeof body.deviceId !== "string" ||
+    body.deviceId?.includes("ADI-") === false
   ) {
     return res.status(403).json({ error: "Forbidden" });
   } else {
@@ -48,10 +50,9 @@ function handler(req, res) {
               (challenge) => challenge.value.plainChallenge!
             );
 
-            const rtdbPath = validateRTDBPath(
-              `/challengeStacks/${body.accountID}`
-            );
-
+            const rtdbPath = `/challengeStacks/${validateRTDBPath(
+              body.accountID
+            )}/${validateRTDBPath(body.deviceId)}`;
             let existingData: null | {
               tx: number;
               challengeResponses: string[];
