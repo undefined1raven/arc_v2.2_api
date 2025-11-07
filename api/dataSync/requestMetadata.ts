@@ -17,7 +17,6 @@ async function handler(req, res) {
     typeof body.accountId !== "string" ||
     typeof body.deviceId !== "string"
   ) {
-    console.log("HERE 1");
     return res.status(403).json({ error: "Forbidden" });
   } else {
     const { authToken, accountId, deviceId } = body;
@@ -28,8 +27,7 @@ async function handler(req, res) {
     );
 
     if (authenticated === false) {
-      console.log("HERE 2");
-      return res.status(403).json({ error: "Forbidden A" });
+      return res.status(403).json({ error: "Unauthorized" });
     }
 
     const timeTrackingMetadataPromise = queryDB(
@@ -68,12 +66,12 @@ async function handler(req, res) {
     if (hasAnyRejections === true) {
       return res.status(500).json({ error: "Metadata fetch error" });
     }
-
-    console.log(metadataResults);
+    //@ts-ignore
+    const finalResults = metadataResults.map((result) => result.value).flat();
 
     return res
       .status(200)
-      .json({ data: metadataResults, status: "success", error: null });
+      .json({ data: finalResults, status: "success", error: null });
   }
 }
 

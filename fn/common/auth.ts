@@ -23,8 +23,6 @@ async function getNativeUserAuth(
 
   const authStackResponse = await getRTDB(authStackPath);
 
-  console.log(authStackResponse, "RR");
-
   if (
     authStackResponse === null ||
     authStackResponse?.challengeResponses === undefined ||
@@ -57,6 +55,8 @@ async function getNativeUserAuth(
 
     return { authenticated: true, status: "success", error: null };
   } else {
+    console.log("NO TOKEN MATCH");
+
     return { authenticated: false, status: "failed", error: "Token not found" };
   }
 }
