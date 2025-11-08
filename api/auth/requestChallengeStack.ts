@@ -28,8 +28,9 @@ function handler(req, res) {
         return res.status(400).json({ error: "-" });
       } else {
         const publicKey = dbResponse[0].publicKey;
+        const numberOfChallenges = 15;
         const challengePromises: Promise<IgenerateCryptoChallengeResult>[] = [];
-        for (let ix = 0; ix < 15; ix++) {
+        for (let ix = 0; ix < numberOfChallenges; ix++) {
           const challengePromise = generateCryptoChallenge(publicKey);
           challengePromises.push(challengePromise);
         }

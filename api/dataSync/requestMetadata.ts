@@ -31,23 +31,23 @@ async function handler(req, res) {
     }
 
     const timeTrackingMetadataPromise = queryDB(
-      "SELECT hash, tx, timeRangeEnd, timeRangeStart FROM timeTrackingChunks WHERE userId = ?",
+      "SELECT hash, tx, timeRangeEnd, timeRangeStart, id FROM timeTrackingChunks WHERE userId = ?",
       [accountId]
     );
     const dayPlannerMetadataPromise = queryDB(
-      "SELECT hash, tx, timeRangeEnd, timeRangeStart FROM dayPlannerChunks WHERE userId = ?",
+      "SELECT hash, tx, timeRangeEnd, timeRangeStart, id FROM dayPlannerChunks WHERE userId = ?",
       [accountId]
     );
     const personalDiaryMetadataPromise = queryDB(
-      "SELECT hash, tx FROM personalDiaryChunks WHERE userId = ?",
+      "SELECT hash, tx , id FROM personalDiaryChunks WHERE userId = ?",
       [accountId]
     );
     const diaryGroupsMetadataPromise = queryDB(
-      "SELECT hash, tx FROM personalDiaryGroups WHERE userId = ?",
+      "SELECT hash, tx, id FROM personalDiaryGroups WHERE userId = ?",
       [accountId]
     );
     const featureConfigMetadataPromise = queryDB(
-      "SELECT hash, tx FROM featureConfigChunks WHERE userId = ?",
+      "SELECT hash, tx, id FROM featureConfigChunks WHERE userId = ?",
       [accountId]
     );
 
@@ -66,8 +66,19 @@ async function handler(req, res) {
     if (hasAnyRejections === true) {
       return res.status(500).json({ error: "Metadata fetch error" });
     }
-    //@ts-ignore
-    const finalResults = metadataResults.map((result) => result.value).flat();
+
+    const tableNameMap = {
+      0: "timeTrackingChunks",
+      1: "dayPlannerChunks",
+      2: "personalDiaryChunks",
+      3: "personalDiaryGroups",
+      4: "featureConfigChunks",
+    };
+
+    const finalResults = metadataResults.map((result, ix) => {
+      //@ts-ignore
+      return { metadata: result.value, tableName: tableNameMap[ix] };
+    });
 
     return res
       .status(200)
