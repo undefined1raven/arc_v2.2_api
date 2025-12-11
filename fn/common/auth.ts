@@ -1,10 +1,11 @@
 import { getRTDB, setRTDB } from "../endpointBoilerplate.js";
 import { validateRTDBPath } from "../validateRTDBPath.js";
+import bcrypt from "bcrypt";
 
 async function getNativeUserAuth(
   accountId: string,
   deviceId: string,
-  authToken: string
+  clientSideAuthToken: string
 ): Promise<{
   authenticated: boolean;
   status: "failed" | "success";
@@ -13,22 +14,21 @@ async function getNativeUserAuth(
   if (
     typeof accountId !== "string" ||
     typeof deviceId !== "string" ||
-    typeof authToken !== "string"
+    typeof clientSideAuthToken !== "string"
   ) {
     return { authenticated: false, status: "failed", error: "Wront arg types" };
   }
-  const authStackPath = `/challengeStacks/${validateRTDBPath(
+  const authStackPath = `/authTokens/${validateRTDBPath(
     accountId
   )}/${validateRTDBPath(deviceId)}`;
 
-  const authStackResponse = await getRTDB(authStackPath);
+  const authTokenResponse = await getRTDB(authStackPath);
+  const authTokenTTL = 15 * 60 * 1000; // 15 minutes
 
   if (
-    authStackResponse === null ||
-    authStackResponse?.challengeResponses === undefined ||
-    authStackResponse?.tx === undefined ||
-    typeof authStackResponse.tx !== "number" ||
-    Array.isArray(authStackResponse?.challengeResponses) === false
+    authTokenResponse === null ||
+    typeof authTokenResponse?.authTokenHash !== "string" ||
+    typeof authTokenResponse?.tx !== "number"
   ) {
     return {
       authenticated: false,
@@ -37,22 +37,22 @@ async function getNativeUserAuth(
     };
   }
 
-  const { challengeResponses, tx } = authStackResponse;
-  const authTokens: string[] = challengeResponses;
+  if (Date.now() - authTokenResponse.tx > authTokenTTL) {
+    console.log("Auth token expired");
+    setRTDB(authStackPath, null); // Clean up expired token
+    return {
+      authenticated: false,
+      status: "failed",
+      error: "Auth token expired",
+    };
+  }
 
-  const hasValidAuthToken = authTokens.some((token) => token === authToken);
+  const hasValidAuthToken = await bcrypt.compare(
+    clientSideAuthToken,
+    authTokenResponse.authTokenHash
+  );
+
   if (hasValidAuthToken === true) {
-    const newAuthStack = authTokens.filter((token) => token !== authToken);
-
-    if (newAuthStack.length > 0) {
-      await setRTDB(authStackPath, {
-        challengeResponses: newAuthStack,
-        tx: tx,
-      });
-    } else {
-      await setRTDB(authStackPath, null);
-    }
-
     return { authenticated: true, status: "success", error: null };
   } else {
     console.log("NO TOKEN MATCH");

@@ -10,6 +10,7 @@ import { getNativeUserAuth } from "../../fn/common/auth";
 
 async function handler(req, res) {
   const body = req.body.data;
+
   if (
     body === undefined ||
     body?.appID !== process.env.APP_ID ||
@@ -17,7 +18,7 @@ async function handler(req, res) {
     typeof body.accountId !== "string" ||
     typeof body.deviceId !== "string" ||
     typeof body.hash !== "string" ||
-    typeof body.tx !== "number" ||
+    (typeof body.tx !== "string" && typeof body.tx !== "number") ||
     typeof body.tableName !== "string" ||
     typeof body.encryptedContent !== "string" ||
     typeof body.id !== "string" ||
@@ -32,9 +33,9 @@ async function handler(req, res) {
       authToken
     );
 
-    // if (authenticated === false) {
-    //   return res.status(403).json({ error: "Unauthorized" });
-    // }
+    if (authenticated === false) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
 
     const { hash, tx, tableName, encryptedContent, id, version } = body;
     const validTables = [
@@ -48,10 +49,7 @@ async function handler(req, res) {
       return res.status(400).json({ error: "Invalid table name" });
     }
 
-    if (
-      tableName !== "timeTrackingChunks" &&
-      tableName !== "dayPlannerChunks"
-    ) {
+    if (tableName === "personalDiaryGroups") {
       return queryDB(
         `INSERT INTO ${tableName} (id, userId, hash, tx, encryptedContent, version)
    VALUES (?, ?, ?, ?, ?, ?)
@@ -70,7 +68,10 @@ async function handler(req, res) {
           console.error("DB error updating chunk:", e);
           return res.status(500).json({ error: "Internal server error" });
         });
-    } else {
+    } else if (
+      tableName === "timeTrackingChunks" ||
+      tableName === "dayPlannerChunks"
+    ) {
       const { timeRangeStart, timeRangeEnd } = body;
       if (
         typeof timeRangeStart !== "number" ||
@@ -101,6 +102,39 @@ async function handler(req, res) {
           timeRangeStart,
           timeRangeEnd,
         ]
+      )
+        .then((r) => {
+          console.log("Chunk updated successfully:");
+          return res.status(200).json({ success: true });
+        })
+        .catch((e) => {
+          console.error("DB error updating chunk:", e);
+          return res.status(500).json({ error: "Internal server error" });
+        });
+    } else if (tableName === "featureConfigChunks") {
+      const { type: featureConfigType } = body;
+      const validFeatureConfigTypes = [
+        "timeTracking",
+        "dayPlanner",
+        "personalDiary",
+      ];
+
+      if (validFeatureConfigTypes.includes(featureConfigType) === false) {
+        return res.status(400).json({ error: "Invalid feature config type" });
+      }
+
+      return queryDB(
+        `INSERT INTO ${tableName} (
+     id, userId, hash, tx, encryptedContent, version, type
+   )
+   VALUES (?, ?, ?, ?, ?, ?, ?)
+   ON CONFLICT(id) DO UPDATE SET
+     hash = excluded.hash,
+     tx = excluded.tx,
+     encryptedContent = excluded.encryptedContent,
+     version = excluded.version,
+      type = excluded.type`,
+        [id, accountId, hash, tx, encryptedContent, version, featureConfigType]
       )
         .then((r) => {
           console.log("Chunk updated successfully:");
