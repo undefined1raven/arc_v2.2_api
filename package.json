@@ -7,8 +7,11 @@
   },
   "author": "raven",
   "dependencies": {
+    "@firebase/database": "^1.1.0",
+    "@libsql/client": "^0.15.15",
     "axios": "^1.4.0",
     "bcrypt": "^5.1.0",
+    "body-parser": "^2.2.1",
     "cookie": "^0.5.0",
     "cookie-parser": "^1.4.7",
     "firebase": "^9.17.1",
