@@ -17,12 +17,8 @@ async function handler(req, res) {
     typeof body.authToken !== "string" ||
     typeof body.accountId !== "string" ||
     typeof body.deviceId !== "string" ||
-    typeof body.hash !== "string" ||
-    (typeof body.tx !== "string" && typeof body.tx !== "number") ||
     typeof body.tableName !== "string" ||
-    typeof body.encryptedContent !== "string" ||
-    typeof body.id !== "string" ||
-    typeof body.version !== "string"
+    typeof body.id !== "string"
   ) {
     return res.status(403).json({ error: "Forbidden" });
   } else {
@@ -52,20 +48,15 @@ async function handler(req, res) {
     return queryDB(`SELECT * FROM ${tableName} WHERE id = ? AND userId = ?`, [
       id,
       accountId,
-    ]).then((result) => {
-      if (result.error) {
-        return res.status(500).json({ error: "Database error" });
-      } else if (result.rows.length === 0) {
-        return res.status(404).json({ error: "Chunk not found" });
+    ]).then((rows) => {
+      if (rows.length === 0) {
+        return res
+          .status(404)
+          .json({ error: "Chunk not found", status: "error" });
       } else {
-        const row = result.rows[0];
-        return res.status(200).json({
-          id: row.id,
-          hash: row.hash,
-          tx: row.tx,
-          encryptedContent: row.encryptedContent,
-          version: row.version,
-        });
+        return res
+          .status(200)
+          .json({ chunk: rows[0], status: "success", tableName: tableName });
       }
     });
   }
