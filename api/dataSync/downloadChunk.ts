@@ -11,6 +11,9 @@ import { getNativeUserAuth } from "../../fn/common/auth";
 async function handler(req, res) {
   const body = req.body.data;
 
+  const tx = Date.now();
+  console.log("DONN REQ HIT");
+
   if (
     body === undefined ||
     body?.appID !== process.env.APP_ID ||
@@ -20,6 +23,16 @@ async function handler(req, res) {
     typeof body.tableName !== "string" ||
     typeof body.id !== "string"
   ) {
+    console.log(
+      "downloadChunk - invalid request body",
+      body === undefined,
+      body?.appID !== process.env.APP_ID,
+      typeof body.authToken !== "string",
+      typeof body.accountId !== "string",
+      typeof body.deviceId !== "string",
+      body.tableName,
+      body.id
+    );
     return res.status(403).json({ error: "Forbidden" });
   } else {
     const { authToken, accountId, deviceId } = body;
@@ -28,6 +41,9 @@ async function handler(req, res) {
       deviceId,
       authToken
     );
+
+    const t2 = Date.now();
+    console.log("DOWN REQ----AUTH DURATION:", Date.now() - tx);
 
     if (authenticated === false) {
       return res.status(403).json({ error: "Unauthorized" });
@@ -54,6 +70,7 @@ async function handler(req, res) {
           .status(404)
           .json({ error: "Chunk not found", status: "error" });
       } else {
+        console.log("DONN REQ DB DURATION", Date.now() - t2);
         return res
           .status(200)
           .json({ chunk: rows[0], status: "success", tableName: tableName });

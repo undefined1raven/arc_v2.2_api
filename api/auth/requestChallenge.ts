@@ -35,7 +35,7 @@ function handler(req, res) {
 
             const hashedChallenge = await bcrypt.hash(
               plainChallengeResponse,
-              11
+              10
             );
 
             const rtdbPath = `/authTokens/${validateRTDBPath(
